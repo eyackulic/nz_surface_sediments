@@ -72,14 +72,14 @@ bChain[1] <- rnorm(1,b_prior_mean,b_prior_sd)
 #not run
 cChain[1] <- rnorm(1,c_prior_mean,c_prior_sd)
 
-objChain[1] <- prior_probability(a = aChain[1],b = bChain[1]
+objChain[1] <- prior_probability(a = aChain[1],b = bChain[1],
                                  a_prior_mean = a_prior_mean,a_prior_sd = a_prior_sd,
                                  c = cChain[1],c_prior_mean = c_prior_mean,c_prior_sd = c_prior_sd,
                                  b_prior_mean = b_prior_mean,b_prior_sd = b_prior_sd) + 
   data_probability(rabd660670 = rabd660670, bchl_group = bchl_group,
                    a = aChain[1], b = bChain[1],
                    min845 = min845, c = cChain[1],
-                   CaSpec = CaSpec, rate = CaSpecUnc)
+                   CaSpec = CaSpec, rate = uncRate)
 
 # hyper parameters
 aStep <- bStep <- cStep <- 0.3

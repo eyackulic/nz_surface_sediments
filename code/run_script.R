@@ -2,12 +2,8 @@
 #source("~/Documents/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
 #source("~/Documents/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
 #otherwise: 
-source('code/functions/surface_seds.R')
-source('code/functions/Surface_Sediment_Functions.R')
-
-library(tidyverse)
-library(prospectr)
-library(olsrr)
+source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/surface_seds.R')
+source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/Surface_Sediment_Functions.R')
 # step 1 : organize data; remove continuum if necessary
 load_Rdata() # sets necessary variables in global environment; need to migrate to github
 
@@ -37,12 +33,14 @@ surface_indices_reduced <-
 
 #step 3 : compare model results - indices vs chlorophyll concentrations
 
-#comp <- indexComparison(dataset = all_indices_combined, normalize = TRUE)
+#comp <- indexComparison(dataset = all_indices_combined, normalize = TRUE, ConcB = TRUE)
 comp <- indexComparison(dataset = surface_indices_reduced, normalize = TRUE, ConcB = TRUE)
 comp %>% 
   dplyr::filter(!variable %in% c('ConcV','ConcP','ConcAl', 'ConcDt') &
                   !predictor %in% 'remp2') %>%
   filter_and_plot()
+comp %>%
+  dplyr::filter(predictor %in% 'min660670' & variable %in% 'CaSpec')
 
 
 surface_indices_reduced$group <- 'low'
@@ -50,7 +48,8 @@ surface_indices_reduced[which(surface_indices_reduced$min830860 > 1.053),]$group
 
 simp_mod <- lm(CaSpec ~ min660670, data = surface_indices_reduced)
 two_mod <-  lm(CaSpec ~ min660670 + group, data = surface_indices_reduced)
-
+summary(surface_indices_reduced$ConcB)
+#logistic regression for concb and report out
 surface_outliers_removed <- 
 surface_indices_reduced %>%
   dplyr::slice_min(cooks.distance(two_mod),
@@ -99,8 +98,6 @@ plots <- plots[ , colSums(is.na(plots)) == 0]
 mod <- modImprover(plots = plots, df = ranks[[1]], model = ranks[[3]], choice = choice)
 mod
 dz <-ranks[[1]][,which(colnames(ranks[[1]]) != "interaction")]
-
-
 OLSresults(cleaned = dz,mod_improvement = mod)
 
 #candidate models # aside from region and geoclass
@@ -126,6 +123,9 @@ dc_indices_combined <-
   )
 dc_indices_combined$group <- 'low'
 dc_indices_combined[dc_indices_combined$min830860 > 1,]$group <- 'hi'
+dc_indices_combined$Sample_Type <- 'Downcore'
+
+mod_group <- lm(normChl~normRABD + group, dc_indices)
 
 surface_cores <- 
   apply_calibrations_downcore(dataset = dataset,
@@ -191,7 +191,7 @@ filter_and_plot(index_list[[4]]) #oporoa
 #all downcore together
 comp <- indexComparison(dataset = dc_indices_combined, normalize = TRUE)
 filter_and_plot(comp)
-dc_indices_combined$Sample_Type <- 'Downcore'
+
 
 ##distribution of min830860 across samples
 
@@ -256,12 +256,60 @@ model_list <-
   get_models(dataset = dataset,
            variables = c('min830860','WaterCont','d675', 'group'),
            normalized = TRUE)
+surface_residuals <-
+  dataset %>%
+  get_residuals(
+    mod_coefficients = surface_coefficients,
+    normalized = TRUE,
+    variable_list = c('min830860','WaterCont','d675', 'group', 'none')) %>%
+  dplyr::bind_cols(dataset) %>%
+  pattern_longer(pattern = 'residual')
+surface_residuals$ca_group <- '750:1000'
 
-residuals <-
-dataset %>%
-  get_residuals(mod_coefficients = surface_coefficients,
+surface_residuals[which(surface_residuals$CaSpec > 0 & surface_residuals$CaSpec < 250),]$ca_group <- '0:250'
+surface_residuals[which(surface_residuals$CaSpec > 250 & surface_residuals$CaSpec < 500),]$ca_group <- '250:500'
+surface_residuals[which(surface_residuals$CaSpec > 500 & surface_residuals$CaSpec < 750),]$ca_group <- '500:750'
+
+ggplot(data = surface_residuals) +
+  geom_violin(aes( 
+    y = values, 
+    x = ca_group,
+    #color = variable_added,
+#    ymin = CaSpec,
+    fill = variable_added)
+                     ) +
+  tidyquant::theme_tq() + ylab('Residuals') + xlab('CaSpec Range') +
+  tidyquant::scale_fill_tq() + facet_wrap(~ca_group, scales = 'free')
+
+
+
+
+dc_residuals <-
+  dc_indices_combined %>%
+  get_residuals(
+                mod_coefficients = surface_coefficients,
                 normalized = TRUE,
-                variable_list = c('min830860','WaterCont','d675', 'group', 'none'))
+                variable_list = c('min830860','WaterCont','d675', 'group', 'none')) %>%
+  dplyr::bind_cols(dc_indices_combined) %>%
+  pattern_longer(pattern = 'residual')
+
+dc_residuals %>%
+  group_by(variable_added, Lake) %>%
+  dplyr::summarise(sum = sum(values))
+
+dc_residuals %>%
+  ggplot()+
+  geom_violin(
+    aes(x = variable_added,
+        y = values, 
+        fill = variable_added,
+        )#,outlier.shape = NA
+    ) + 
+  geom_point(aes(x = variable_added,
+             y = median(values)), color = 'black')+
+  facet_wrap(~Lake, scales = 'free_y')+
+  tidyquant::theme_tq() + ylab('Residuals') + xlab('') +
+  tidyquant::scale_fill_tq() + theme(axis.text.x = element_blank())
 
 new_dataset <- dataset %>%
   add_predictions(mod_coefficients = surface_coefficients,
@@ -269,11 +317,12 @@ new_dataset <- dataset %>%
                   model_list = model_list,
                   confidence_intervals = FALSE
                   ) %>%
-  predictions_longer()
+  pattern_longer(pattern = 'prediction')
 
+residuals %>%
 ggplot()+
-    geom_area(data = new_dataset %>%
-                dplyr::filter(variable_added == 'none_prediction'),
+    geom_area(# %>%
+#                dplyr::filter(variable_added == 'none_prediction'),
     aes(x = values,
       y = CaSpec,
       fill = variable_added)) +
@@ -282,8 +331,6 @@ ggplot()+
 #still missing
 #band ratio test
 #european lake comparison
-<<<<<<< Updated upstream
-=======
 
 #glm attempt 
 
@@ -325,6 +372,4 @@ ggplot() +
   geom_tile(data = dc_results, aes(y = Variable, x = Lake, fill = as.numeric(r2)), alpha = .4) +
   scale_fill_viridis_c(name = 'r2'#,
                        #limits = c(0,0.7)
-  ) + theme_classic() + 
   theme(axis.text.x = element_text(angle = 90))
->>>>>>> Stashed changes

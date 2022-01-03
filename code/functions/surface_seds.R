@@ -214,7 +214,6 @@ bandRatio <- function(dataset, coords_list){
 calcIndices <- function(dataset, indices, index_type){
 min_indices <-
   indices %>%
-  rename(index = 1, coordinates = 2, type = 3) %>% 
   dplyr::filter(type %in% index_type) %>%
   dplyr::select(-type) 
 
@@ -233,7 +232,7 @@ AllSpectralIndices <- function(dataset, indices){
   out <- list()
   index_choice = c('rabd','rabd_min','raba')#, 'band_ratio') excluding for now
   for(i in 1:length(index_choice)){
-    results <- calcIndices(dataset, indices = indices, index_type = index_choice[i])
+    results <- calcIndices(dataset, indices, index_type = index_choice[i])
     out[[i]] <- data.frame(results)
     if(is.null(names(results))){
       names(out[[i]]) <- colnames(results)
@@ -352,11 +351,7 @@ lmp <- function (modelobject) {
 }
 
 readDowncoreData <-function(){
-<<<<<<< Updated upstream
-  downcore_data <- read.csv("data/new_zealand_downcore.csv")  
-=======
   downcore_data <- read.csv(glue::glue(getwd(), '/data/new_zealand_downcore.csv'))  
->>>>>>> Stashed changes
   colnames(downcore_data) <- gsub(colnames(downcore_data), pattern = 'X',replacement = '')
   downcore_data$Lake_ID <- downcore_data$Sample
   if(colnames(downcore_data)[1] == ""){
@@ -474,9 +469,9 @@ load_Rdata <- function(){
                     'chlCorrection', list(c(849,850)), 'band_ratio',
                     'means', list(c(570,730)), 'band_ratio'
            )
-    ) %>% data.frame() %>%   rename(index = 1, coordinates = 2, type = 3) 
-
-
+    ) %>% data.frame()
+  colnames(indices) <- c('index', 'coordinates', 'type')
+  
   downcore_indices <<- 
     indices %>%
     dplyr::filter(!index %in% c('rabd480', 'min455495', 'raba410560'))

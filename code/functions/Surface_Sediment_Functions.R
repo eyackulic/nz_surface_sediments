@@ -350,12 +350,9 @@ OLSresults <- function(cleaned, mod_improvement){
     data.frame()#, cleaned$min660670)#,"residuals","min660670"))]
   colnames(ols) <- c(colnames(cleaned)[which(colnames(cleaned) %in% mod_improvement$variable)], 'residuals')
   ols_model <- lm(residuals ~ ., data = ols)
-<<<<<<< Updated upstream
-  return(olsrr::ols_step_both_p(ols_model, details = TRUE))
-=======
-  #ols_model$call$data <- 'ols'
+
   olsrr::ols_step_both_p(ols_model, details = TRUE)
->>>>>>> Stashed changes
+
 }
 
 
