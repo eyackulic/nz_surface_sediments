@@ -333,7 +333,7 @@ lmp <- function (modelobject) {
 }
 
 readDowncoreData <-function(){
-  downcore_data <- read.csv("/Users/ethanyackulic/Desktop/new_zealand_downcore.csv")  
+  downcore_data <- read.csv("data/new_zealand_downcore.csv")  
   colnames(downcore_data) <- gsub(colnames(downcore_data), pattern = 'X',replacement = '')
   downcore_data$Lake_ID <- downcore_data$Sample
   if(colnames(downcore_data)[1] == ""){
@@ -608,7 +608,7 @@ predictions_longer <- function(dataset){
   s_squares <- sum((chl - mean(chl))^2)
   (r2 <- 1 - (s_res/s_squares))
   (r2_adj <- 1-(((1-r2)*(n-1))/ (n - k - 1)))
-    pval <- pt(,)
+  #  pval <- pt(,)
   if(normalized == TRUE){
     chl = chl ^10
     fitted_values = fitted_values ^10

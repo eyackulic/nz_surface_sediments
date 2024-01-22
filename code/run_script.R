@@ -125,7 +125,6 @@ dc_indices_combined <-
   )
 dc_indices_combined$group <- 'low'
 dc_indices_combined[dc_indices_combined$min830860 > 1,]$group <- 'hi'
-mod_group <- lm(normChl~normRABD + group, dc_indices)
 
 surface_cores <- 
   apply_calibrations_downcore(dataset = dataset,
