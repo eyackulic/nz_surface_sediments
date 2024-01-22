@@ -1,4 +1,10 @@
 #retrieve and sort all data from github
+getGitHubData <- function(){
+  all_spectra = 'https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/data/all_nz_data.csv' %>%
+    url() %>%
+    readr::read_csv()
+}
+#nowdefunct
 getDataPaths <- function(){
 all_spectra = 'https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/data/SS-allspectra-updated.csv' %>%
   url() %>%
