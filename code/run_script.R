@@ -2,8 +2,12 @@
 #source("~/Documents/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
 #source("~/Documents/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
 #otherwise: 
-source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/surface_seds.R')
-source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/Surface_Sediment_Functions.R')
+source('functions/surface_seds.R')
+source('functions/Surface_Sediment_Functions.R')
+
+library(tidyverse)
+library(prospectr)
+library(olsrr)
 # step 1 : organize data; remove continuum if necessary
 load_Rdata() # sets necessary variables in global environment; need to migrate to github
 
@@ -93,6 +97,8 @@ plots <- plots[ , colSums(is.na(plots)) == 0]
 mod <- modImprover(plots = plots, df = ranks[[1]], model = ranks[[3]], choice = choice)
 mod
 dz <-ranks[[1]][,which(colnames(ranks[[1]]) != "interaction")]
+
+
 OLSresults(cleaned = dz,mod_improvement = mod)
 
 #candidate models # aside from region and geoclass

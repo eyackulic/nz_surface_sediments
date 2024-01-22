@@ -359,8 +359,10 @@ OLSresults <- function(cleaned, mod_improvement){
     data.frame()#, cleaned$min660670)#,"residuals","min660670"))]
   colnames(ols) <- c(colnames(cleaned)[which(colnames(cleaned) %in% mod_improvement$variable)], 'residuals')
   ols_model <- lm(residuals ~ ., data = ols)
-  olsrr::ols_step_both_p(ols_model, details = TRUE)
+  return(olsrr::ols_step_both_p(ols_model, details = TRUE))
 }
+
+
 #this wont work because the cutoff is too low (.1) currently
 morePlots <- function(cleaned, plots, mod_improvement){
   plots <- cleaned[,which(colnames(cleaned) %in% mod_improvement[which(mod_improvement$r2_improved > .1),]$variable)]#%>% data.frame()#,"residuals","min660670"))]
