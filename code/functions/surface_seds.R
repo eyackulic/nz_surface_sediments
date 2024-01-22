@@ -332,62 +332,6 @@ lmp <- function (modelobject) {
   round(p, digits = 2)
 }
 
-
-
-
-
-getR2 <- function(mod_coefficients, data, normalized = TRUE, variable){
-  if(normalized == TRUE){
-  chl <- data$normChl
-  rabd <- data$normRABD
-  }else{
-    chl <- data$CaSpec
-    rabd <- data$min660670
-  }
-  mod_coefficients <- as.numeric(mod_coefficients)
-  n <- length(chl)
-  k <- length(mod_coefficients) - 1
-  
-  if(variable != 'none'){
-    var <- data[,colnames(data) %in% variable] 
-  }else{k <- 1}
-  if(k %in% 1){
-    fitted.values <- mod_coefficients[1] + (mod_coefficients[2] * rabd) 
-  }else if(k %in% 2){
-    if(variable %in% 'group'){
-      fitted.values <- vector()
-      for(i in 1:length(rabd)){
-      if(data$group[i] == 'hi'){
-        fitted.values[i] <- mod_coefficients[1] + (mod_coefficients[2] * rabd[i])
-      }else{
-        fitted.values[i] <- mod_coefficients[1] + (mod_coefficients[2] * rabd[i]) + (mod_coefficients[3]) 
-      }
-      }
-    }else{
-     var <- var %>% as.numeric()
-    fitted.values <- mod_coefficients[1] + (mod_coefficients[2] * rabd) + (mod_coefficients[3] * var) 
-    }
-  }else{
-    print('check function. not designed for more than two predictors')
-  }
-
-  mod_diff <- chl - (fitted.values)
-  #sum residuals
-  s_res <- sum(mod_diff^2)
-  s_squares <- sum((chl - mean(chl))^2)
-  (r2 <- 1 - (s_res/s_squares))
-  (r2_adj <- 1-(((1-r2)*(n-1))/ (n - k - 1)))
-  
-  if(normalized == TRUE){
-    chl = chl ^10
-    fitted.values = fitted.values ^10
-  }
-  rmse <- sqrt(mean(((chl) - (fitted.values))^2))
-  out <-cbind(r2,r2_adj,rmse)
-colnames(out) <- c('r2','r2_adj','rmse')
-out  
-}
-
 readDowncoreData <-function(){
   downcore_data <- read.csv("/Users/ethanyackulic/Desktop/new_zealand_downcore.csv")  
   colnames(downcore_data) <- gsub(colnames(downcore_data), pattern = 'X',replacement = '')
@@ -527,10 +471,13 @@ apply_calibrations_downcore <- function(dataset, coefficient_list, normalized = 
 out <- data.frame(matrix(ncol = 3, nrow = nrow(coefficient_list)))
 for(i in 1:nrow(coefficient_list)){
   coef <- coefficient_list[i,]
-  out[i,] = getR2(mod_coefficients = coef[1:3],
+  out[i,] = get_chl_predictions(mod_coefficients = coef[1:3],
         data = dataset,
-        var = coef$Variable,
-        normalized = TRUE)
+        variable = coef$Variable,
+        normalized = normalized) %>%
+      getR2(chl = dataset$normChl,
+            mod_coefficients = coef[1:3],
+            normalized = normalized)
 }
   colnames(out) <- c('r2','adj_r2','rmse')
   out
@@ -579,3 +526,160 @@ if(variable %in% 'group'){
 }
 }
 
+
+get_chl_predictions <- function(mod_coefficients, data, normalized = TRUE, variable){
+  
+  if(normalized == TRUE){
+    chl <- data$normChl
+    rabd <- data$normRABD
+  }else{
+    chl <- data$CaSpec
+    rabd <- data$min660670
+  }
+  mod_coefficients <- as.numeric(mod_coefficients)
+  n <- length(chl)
+  k <- length(mod_coefficients) - 1
+  
+  if(variable != 'none'){
+    var <- data[,colnames(data) %in% variable] 
+  }else{k <- 1}
+  if(k %in% 1){
+    fitted_values <- mod_coefficients[1] + (mod_coefficients[2] * rabd) 
+  }else if(k %in% 2){
+    if(variable %in% 'group'){
+      fitted_values <- vector()
+      for(i in 1:length(rabd)){
+        if(data$group[i] == 'hi'){
+          fitted_values[i] <- mod_coefficients[1] + (mod_coefficients[2] * rabd[i])
+        }else{
+          fitted_values[i] <- mod_coefficients[1] + (mod_coefficients[2] * rabd[i]) + (mod_coefficients[3]) 
+        }
+      }
+    }else{
+      var <- var %>% as.numeric()
+      fitted_values <- mod_coefficients[1] + (mod_coefficients[2] * rabd) + (mod_coefficients[3] * var) 
+    }
+  }else{
+    print('check function. not designed for more than two predictors')
+  }
+  fitted_values
+}
+
+add_predictions <- function(dataset, mod_coefficients, normalized = TRUE, model_list, confint = TRUE){
+
+if(confint == TRUE){
+  get_confidence_parameters(model_list = model_list,
+                            dataset = dataset,
+                            normalized = normalized,
+                            )
+}  
+for(i in 1:nrow(mod_coefficients)){  
+  n = length(colnames(dataset))+1
+  dataset$temp <-
+    get_chl_predictions(
+    mod_coefficients = mod_coefficients[i,1:3],
+    data = dataset,
+    normalized = TRUE,
+    variable = mod_coefficients$Variable[i])^10
+
+  colnames(dataset)[n] <- glue::glue(mod_coefficients$Variable[i], '_prediction')
+}
+  dataset
+}
+
+predictions_longer <- function(dataset){
+  
+  prediction_names <- colnames(dataset)[grepl(colnames(dataset),pattern = 'prediction')]  
+  
+  dataset %>%
+  dplyr::select(c('Lake', 'CaSpec', 'Sample_Type'), prediction_names) %>%
+  tidyr::pivot_longer(!c(Lake, CaSpec, Sample_Type),
+                      names_to = 'variable_added',
+                      values_to = 'values')
+  }
+
+  getR2 <- function(fitted_values, chl, mod_coefficients, normalized = TRUE){
+  
+  n <- length(chl)
+  k <- length(mod_coefficients) - 1  
+  mod_diff <- chl - (fitted_values)
+  #sum residuals
+  s_res <- sum(mod_diff^2)
+  s_squares <- sum((chl - mean(chl))^2)
+  (r2 <- 1 - (s_res/s_squares))
+  (r2_adj <- 1-(((1-r2)*(n-1))/ (n - k - 1)))
+    pval <- pt(,)
+  if(normalized == TRUE){
+    chl = chl ^10
+    fitted_values = fitted_values ^10
+  }
+  rmse <- sqrt(mean(((chl) - (fitted_values))^2))
+  out <-cbind(r2,r2_adj,rmse)
+  colnames(out) <- c('r2','r2_adj','rmse')
+  out  
+}
+
+
+  pred_intervals <- function(var1,var2,mod_coefficients){
+    SSE_line = sum((var1 - (mod_coefficients[1] + mod_coefficients[2]*var2))^2)
+    n <- length(var1)
+    MSE = SSE_line/(n-2)
+    t.quantiles <- qt(c(.025, .975), n-2)
+    SE_predict = sqrt(MSE)*sqrt((1+1/n)+(mean(var2)-1)^2/sum((var2 - mean(var2))^2))
+    prediction = mod_coefficients[1]  + mod_coefficients[2] * 1
+    intervals <- prediction + SE_predict*t.quantiles
+    out <- data.frame(cbind(intervals[1],prediction,intervals[2]))
+    colnames(out) <- c("low", "estimate", "high")
+    return(out)
+  }
+  
+  
+  
+  get_models <- function(dataset,
+                         variables,
+                         normalized = TRUE){
+    if(normalized == TRUE){
+      chl = dataset$normChl
+      rabd = dataset$normRABD
+    }else{
+      chl = dataset$CaSpec
+      rabd = dataset$min660670
+    }
+    out_list <- list()
+    for(i in 1:length(variables)){
+      var = dataset[,which(colnames(dataset) %in% variables[i])]
+      if(length(var[!is.na(as.numeric(var))]) > 1){ var = as.numeric(var)}
+      out_list[[i]] <- lm(chl ~ rabd + var)
+    }
+    out_list[[i+1]] <- lm(chl ~ rabd)
+    names(out_list) <- c(variables,'none')
+    out_list
+  }
+  
+  
+  get_confidence_parameters <- function(model_list,
+                                    dataset,
+                                    normalized = TRUE){
+    if(normalized == TRUE){
+      chl = dataset$normChl
+      rabd = dataset$normRABD
+    }else{
+      chl = dataset$CaSpec
+      rabd = dataset$min660670
+    }
+    confint = list()
+    for(i in 1:length(model_list)){
+      varname = names(model_list)[i]
+      if(varname %in% 'none'){
+        new_df <-data.frame(cbind(chl,rabd))
+        confint[[i]] <- confint(object = model_list[[i]])
+      }else{
+      var = dataset[,which(colnames(dataset) == varname)]
+      new_df <-data.frame(cbind(chl,rabd,var))
+      confint[[i]] <- confint(object = model_list[[i]])
+      }
+    }
+  names(confint) <- names(model_list)
+  confint  
+  }
+  #wrapper_function
