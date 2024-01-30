@@ -2,8 +2,8 @@
 #source("~/Documents/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
 #source("~/Documents/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
 #otherwise: 
-source('functions/surface_seds.R')
-source('functions/Surface_Sediment_Functions.R')
+source('code/functions/surface_seds.R')
+source('code/functions/Surface_Sediment_Functions.R')
 
 library(tidyverse)
 library(prospectr)
