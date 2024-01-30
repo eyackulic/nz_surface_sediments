@@ -91,41 +91,47 @@ good <- seq(burnIn,length(objChain),by = round(1/thin))
 
 aChainGood <- aChain[good]
 bChainGood <- bChain[good]
+objChainGood <- objChain[good]
 
 hist(aChainGood)
 hist(bChainGood)
 
 
+#highest 10000 from the obj chain
+
+subSampled <- sample(seq_along(aChainGood),size = 1000)
+
+hist(objChainGood[subSampled])
+
+a_post <- aChainGood[subSampled]
+b_post <- bChainGood[subSampled]
+hist(a_post)
+hist(b_post)
+#function to apply bayesian calibration
+
+applyCalibration <- function(rabd660670,bchl_group,a_post,b_post){
+  
+  caSpecCalib <- purrr::map2(a_post,b_post,\(x,y) model(rabd660670,bchl_group,x,y), .progress = TRUE) |> 
+    list_c() |> 
+    matrix(ncol = 1000)
+
+  return(caSpecCalib)
+}
+
+calibHi <- applyCalibration(RABDseq,rep("hi",length(RABDseq)),a_post,b_post)
+calibLo <- applyCalibration(RABDseq,rep("low",length(RABDseq)),a_post,b_post)
+
+
+
 RABDseq <- seq(1,2.1,by = 0.01)
 
 
-plotMedA <- median(aChainGood)
-plotMedB <- median(bChainGood)
 
-plotA95 <- quantile(aChainGood,probs = c(.25,.75))
-plotB95 <- quantile(bChainGood,probs = c(.25,.75))
-
-
-# plotA <- 5
-# plotB <- 5
-
-modCaSpecHi <- model(RABDseq,rep("hi",length(RABDseq)),plotMedA,plotMedB)
-modCaSpecLow <- model(RABDseq,rep("low",length(RABDseq)),plotMedA,plotMedB)
-
-modCaSpecHi_Lo <- model(RABDseq,rep("hi",length(RABDseq)),plotA95[1],plotB95[1])
-modCaSpecHi_Hi <- model(RABDseq,rep("hi",length(RABDseq)),plotA95[2],plotB95[2])
-
-modCaSpecLow_Lo <- model(RABDseq,rep("low",length(RABDseq)),plotA95[1],plotB95[1])
-modCaSpecLow_Hi <- model(RABDseq,rep("low",length(RABDseq)),plotA95[2],plotB95[2])
-
-
-
-scatterPlot <- ggplot() +
-  geom_ribbon(data = NULL, aes(x = RABDseq, ymin = modCaSpecHi_Lo,ymax = modCaSpecHi_Hi),fill = "red",alpha = 0.2) +  
-  geom_ribbon(data = NULL, aes(x = RABDseq, ymin = modCaSpecLow_Lo,ymax = modCaSpecLow_Hi),fill ="blue",alpha = 0.2) +
+scatterPlot <-  geoChronR::plotTimeseriesEnsRibbons(X = RABDseq,Y = calibHi,color.low = "lightsalmon",color.high = "red4",alp = 0.5) |> 
+  geoChronR::plotTimeseriesEnsRibbons(X = RABDseq,Y = calibLo,color.low = "lightskyblue",color.high = "darkblue",alp = 0.5) +
   geom_point(data = surface_indices_reduced,aes(x = min660670, y = CaSpec, color = group)) + 
-  geom_line(data = NULL,aes(x = RABDseq,y = modCaSpecHi),color = "red") +
-  geom_line(data = NULL,aes(x = RABDseq,y = modCaSpecLow),color = "blue") +
+  # geom_line(data = NULL,aes(x = RABDseq,y = modCaSpecHi),color = "red") +
+  # geom_line(data = NULL,aes(x = RABDseq,y = modCaSpecLow),color = "blue") +
   coord_cartesian(ylim = c(0,1100))  + 
   xlab("RABD<sub>660-670</sub>") + 
   ylab("Photospectrometer-inferred Chloropigments (ug/g)") + 
