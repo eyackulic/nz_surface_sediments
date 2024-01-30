@@ -42,8 +42,6 @@ data_probability <- function(rabd660670,bchl_group,a,b,CaSpec,rate){
 rabd660670 <- surface_indices_reduced$min660670
 bchl_group <- surface_indices_reduced$group
 CaSpec <- surface_indices_reduced$CaSpec
-CaSpecUnc <- surface_indices_reduced$CaSpec *.1
-
 
 nIts <- 1e5
 aChain <- bChain <- objChain <- matrix(NA, nrow = nIts)
@@ -83,29 +81,36 @@ close(pb)
 
 #diagnostics
 mean(diff(objChain) != 0)
-plot(objChain[-c(1:1000)],type = "l")
+plot(objChain[c(1:100)],type = "l")
 
+#define burn-in and thinning
+burnIn <- 1000
+thin <- .1
 
+good <- seq(burnIn,length(objChain),by = round(1/thin))
 
-hist(aChain)
-hist(bChain)
+aChainGood <- aChain[good]
+bChainGood <- bChain[good]
+
+hist(aChainGood)
+hist(bChainGood)
 
 
 RABDseq <- seq(1,2.1,by = 0.01)
 
 
-plotMedA <- median(aChain)
-plotMedB <- median(bChain)
+plotMedA <- median(aChainGood)
+plotMedB <- median(bChainGood)
 
-plotA95 <- quantile(aChain,probs = c(.25,.75))
-plotB95 <- quantile(bChain,probs = c(.25,.75))
+plotA95 <- quantile(aChainGood,probs = c(.25,.75))
+plotB95 <- quantile(bChainGood,probs = c(.25,.75))
 
 
 # plotA <- 5
 # plotB <- 5
 
-modCaSpecHi <- model(RABDseq,rep("hi",length(RABDseq)),plotA,plotB)
-modCaSpecLow <- model(RABDseq,rep("low",length(RABDseq)),plotA,plotB)
+modCaSpecHi <- model(RABDseq,rep("hi",length(RABDseq)),plotMedA,plotMedB)
+modCaSpecLow <- model(RABDseq,rep("low",length(RABDseq)),plotMedA,plotMedB)
 
 modCaSpecHi_Lo <- model(RABDseq,rep("hi",length(RABDseq)),plotA95[1],plotB95[1])
 modCaSpecHi_Hi <- model(RABDseq,rep("hi",length(RABDseq)),plotA95[2],plotB95[2])
@@ -115,7 +120,7 @@ modCaSpecLow_Hi <- model(RABDseq,rep("low",length(RABDseq)),plotA95[2],plotB95[2
 
 
 
-ggplot() +
+scatterPlot <- ggplot() +
   geom_ribbon(data = NULL, aes(x = RABDseq, ymin = modCaSpecHi_Lo,ymax = modCaSpecHi_Hi),fill = "red",alpha = 0.2) +  
   geom_ribbon(data = NULL, aes(x = RABDseq, ymin = modCaSpecLow_Lo,ymax = modCaSpecLow_Hi),fill ="blue",alpha = 0.2) +
   geom_point(data = surface_indices_reduced,aes(x = min660670, y = CaSpec, color = group)) + 
@@ -124,10 +129,27 @@ ggplot() +
   coord_cartesian(ylim = c(0,1100))
 
 
+contour2d <- ggplot(mapping = aes(x = aChainGood, y = bChainGood)) + 
+  stat_density2d(aes(fill = ..level..), geom = "polygon", colour = "white")
+
+
+
+a_prior_x <- seq(0,10,by = .1)
+a_prior_y <- dnorm(a_prior_x,mean = a_prior_mean,sd = a_prior_sd)
+postA <- ggplot() + 
+  geom_density(aes(x = aChainGood),fill = "red", color = NA,alpha = 0.8) + 
+  geom_line(aes(x = a_prior_x,y = a_prior_y))
+postA
   # x <- seq(0,1000,by =1)
   # y <- dgamma(x,shape = 100*.02, rate = .02)
   # plot(x,y)
 
+b_prior_x <- seq(0,10,by = .1)
+b_prior_y <- dnorm(b_prior_x,mean = b_prior_mean,sd = b_prior_sd)
+postB <- ggplot() + 
+  geom_density(aes(x = bChainGood),fill = "blue", color = NA,alpha = 0.8) + 
+  geom_line(aes(x = b_prior_x,y = b_prior_y))
+postB
   
   
 
