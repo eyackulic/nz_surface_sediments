@@ -126,19 +126,30 @@ scatterPlot <- ggplot() +
   geom_point(data = surface_indices_reduced,aes(x = min660670, y = CaSpec, color = group)) + 
   geom_line(data = NULL,aes(x = RABDseq,y = modCaSpecHi),color = "red") +
   geom_line(data = NULL,aes(x = RABDseq,y = modCaSpecLow),color = "blue") +
-  coord_cartesian(ylim = c(0,1100))
+  coord_cartesian(ylim = c(0,1100))  + 
+  xlab("RABD<sub>660-670</sub>") + 
+  ylab("Photospectrometer-inferred Chloropigments (ug/g)") + 
+  theme(legend.position = c(.2,.8), 
+        axis.title.x = ggtext::element_markdown(),
+        axis.title.y = ggtext::element_markdown())
 
 
 contour2d <- ggplot(mapping = aes(x = aChainGood, y = bChainGood)) + 
-  stat_density2d(aes(fill = ..level..), geom = "polygon", colour = "white")
+  stat_density2d(aes(fill = ..level..), geom = "polygon", colour = "white") + 
+  theme(legend.position = c(.8,.8)) +
+  xlab("A") + 
+  ylab("B")
+
 
 
 
 a_prior_x <- seq(0,10,by = .1)
 a_prior_y <- dnorm(a_prior_x,mean = a_prior_mean,sd = a_prior_sd)
 postA <- ggplot() + 
-  geom_density(aes(x = aChainGood),fill = "red", color = NA,alpha = 0.8) + 
-  geom_line(aes(x = a_prior_x,y = a_prior_y))
+  geom_density(aes(x = aChainGood),fill = "darkgreen", color = NA,alpha = 0.8) + 
+  geom_line(aes(x = a_prior_x,y = a_prior_y)) + 
+  xlab("A") + 
+  ylab("")
 postA
   # x <- seq(0,1000,by =1)
   # y <- dgamma(x,shape = 100*.02, rate = .02)
@@ -147,9 +158,13 @@ postA
 b_prior_x <- seq(0,10,by = .1)
 b_prior_y <- dnorm(b_prior_x,mean = b_prior_mean,sd = b_prior_sd)
 postB <- ggplot() + 
-  geom_density(aes(x = bChainGood),fill = "blue", color = NA,alpha = 0.8) + 
-  geom_line(aes(x = b_prior_x,y = b_prior_y))
+  geom_density(aes(x = bChainGood),fill = "darkorchid", color = NA,alpha = 0.8) + 
+  geom_line(aes(x = b_prior_x,y = b_prior_y)) + 
+xlab("B") + 
+  ylab("")
 postB
-  
-  
+comboPlot <- gridExtra::grid.arrange(grobs = list(postA,postB,contour2d,scatterPlot),
+                            layout_matrix = matrix(c(1, 2, 3, 
+                                                     4, 4, 4, 
+                                                     4, 4, 4),nrow = 3,byrow = TRUE))
 
