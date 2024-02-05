@@ -10,6 +10,22 @@ all_spectra = 'https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/
   url() %>%
   readr::read_csv()
 
+add_metadata <- function(dataset){
+  metadata <- glue::glue(
+    getwd(),
+    '/data/archived_data/Lakes380_metadata.xlsx') %>%
+    readxl::read_xlsx()
+  
+  new_columns <- colnames(metadata)[-which(colnames(metadata) %in% 
+                                             colnames(dataset))]
+  all_metadatas <- 
+    metadata %>%
+    dplyr::select(all_of(new_columns)) %>%
+    dplyr::rename(Lake_ID = Code) %>%
+    dplyr::right_join(dataset, by = 'Lake_ID')
+  
+  all_metadatas
+}
 new_dat2 <- readxl::read_xlsx("data/SS-allspectra-Bchl_2.xlsx") 
 HSI_JS <- readxl::read_xlsx("data/Surface_Sediments_Pigments.xlsx")
 grainData <- readxl::read_xlsx("data/nz_grain_size.xlsx",sheet = 4)
@@ -257,7 +273,7 @@ indexComparison <- function(dataset, normalize = FALSE, ConcB = NA){
   if(normalize == TRUE){
     chl$CaSpec <-chl$CaSpec ^ (1/5)
     chl$CbSpec <- chl$CbSpec ^ (1/5)
-    chl$CarSpec <-  chl$CarSpec ^ (1/5)
+    chl$CarSpec <-  log(chl$CarSpec + 2.2) #^(1/5)
     chl$ConcCa <- chl$ConcCa ^ (1/6)
     chl$ConcCb <- chl$ConcCb ^ (1/4)
     chl$ConcZ <- chl$ConcZ ^ (1/5)
@@ -266,11 +282,14 @@ indexComparison <- function(dataset, normalize = FALSE, ConcB = NA){
     chl$ConcEc <- chl$ConcEc ^ (1/5)
     chl$ConcCt <- chl$ConcCt ^ (1/5)
   }
-  if(normalize == TRUE & is.na(ConcB) == FALSE){
+  if(normalize == TRUE & ConcB == TRUE){
     chl$ChlPR <- chl$ChlPR ^ (1/5)
+    #chl[which(chl$ConcB < .1),]$ConcB <- 0
+    #chl[which(chl$ConcB > .1),]$ConcB <- 1
+    #chl$ConcB <- as.character(chl$ConcB)
     chl[which(chl$ConcB>2),]$ConcB <- 1 + (chl[which(chl$ConcB>2),]$ConcB/10) 
     chl[which(chl$ConcB < .1),]$ConcB <- NA
-    chl$ConcB <- (chl$ConcB) ^ (1/10)
+    chl$ConcB <- (chl$ConcB) ^ (1/30)
   }
   index_list <- c("remp2",
     "d660", "d675", "d690", "der_amp", "der_sum",
@@ -333,7 +352,11 @@ lmp <- function (modelobject) {
 }
 
 readDowncoreData <-function(){
+<<<<<<< Updated upstream
   downcore_data <- read.csv("data/new_zealand_downcore.csv")  
+=======
+  downcore_data <- read.csv(glue::glue(getwd(), '/data/new_zealand_downcore.csv'))  
+>>>>>>> Stashed changes
   colnames(downcore_data) <- gsub(colnames(downcore_data), pattern = 'X',replacement = '')
   downcore_data$Lake_ID <- downcore_data$Sample
   if(colnames(downcore_data)[1] == ""){
@@ -408,7 +431,7 @@ get_calibration_stats <- function(dataset,
   }
   out_list <- list()
   for(i in 1:length(variables)){
-    var = dataset[,which(colnames(dataset) %in% variables[i])]
+    var = dataset[,which(colnames(dataset) %in% variables[i])] %>% unlist()
     if(length(var[!is.na(as.numeric(var))]) > 1){ var = as.numeric(var)}
     out_list[[i]] <- c(lm(chl ~ rabd + var)$coefficients, normalized, variables[i])
     names(out_list[[i]])[3:5] <- c('var','Normalized','Variable')
@@ -526,6 +549,34 @@ if(variable %in% 'group'){
 }
 }
 
+get_residuals <- function(data, mod_coefficients, normalized = TRUE, variable_list){
+  residuals <- 
+    data.frame(
+      matrix(
+        nrow = nrow(data),
+        ncol = length(variable_list) 
+        )
+    )
+  for(i in 1:length(variable_list)){
+  fitted_predictions <- get_chl_predictions(mod_coefficients = mod_coefficients[i, 1:3],
+                                            data = data,
+                                            normalized = normalized,
+                                            variable = variable_list[i])
+  
+  chl <- data$CaSpec
+  if(normalized == TRUE){
+    fitted_predictions <- fitted_predictions ^ 10
+  }else{
+    fitted_predictions <- fitted_predictions  
+    }
+  
+ residuals[,i] <- chl - fitted_predictions
+ colnames(residuals)[i] <- glue::glue(variable_list[i], '_residuals')
+  }
+
+
+  residuals
+}
 
 get_chl_predictions <- function(mod_coefficients, data, normalized = TRUE, variable){
   
@@ -536,8 +587,9 @@ get_chl_predictions <- function(mod_coefficients, data, normalized = TRUE, varia
     chl <- data$CaSpec
     rabd <- data$min660670
   }
+  
   mod_coefficients <- as.numeric(mod_coefficients)
-  n <- length(chl)
+  n <- length(rabd)
   k <- length(mod_coefficients) - 1
   
   if(variable != 'none'){
@@ -556,7 +608,7 @@ get_chl_predictions <- function(mod_coefficients, data, normalized = TRUE, varia
         }
       }
     }else{
-      var <- var %>% as.numeric()
+      var <- var %>% unlist() %>% as.numeric()
       fitted_values <- mod_coefficients[1] + (mod_coefficients[2] * rabd) + (mod_coefficients[3] * var) 
     }
   }else{
@@ -565,12 +617,13 @@ get_chl_predictions <- function(mod_coefficients, data, normalized = TRUE, varia
   fitted_values
 }
 
-add_predictions <- function(dataset, mod_coefficients, normalized = TRUE, model_list, confint = TRUE){
 
-if(confint == TRUE){
-  get_confidence_parameters(model_list = model_list,
+add_predictions <- function(dataset, mod_coefficients, normalized = TRUE, model_list, confidence_intervals = TRUE){
+
+if(confidence_intervals == TRUE){
+  additional_params <- get_confidence_parameters(model_list = model_list,
                             dataset = dataset,
-                            normalized = normalized,
+                            normalized = normalized
                             )
 }  
 for(i in 1:nrow(mod_coefficients)){  
@@ -580,19 +633,20 @@ for(i in 1:nrow(mod_coefficients)){
     mod_coefficients = mod_coefficients[i,1:3],
     data = dataset,
     normalized = TRUE,
-    variable = mod_coefficients$Variable[i])^10
+    variable = mod_coefficients$Variable[i]
+    )^10 #return to native chl units
 
   colnames(dataset)[n] <- glue::glue(mod_coefficients$Variable[i], '_prediction')
 }
   dataset
 }
 
-predictions_longer <- function(dataset){
+pattern_longer <- function(dataset, pattern){
   
-  prediction_names <- colnames(dataset)[grepl(colnames(dataset),pattern = 'prediction')]  
+  prediction_names <- colnames(dataset)[grepl(colnames(dataset),pattern = pattern)]  
   
   dataset %>%
-  dplyr::select(c('Lake', 'CaSpec', 'Sample_Type'), prediction_names) %>%
+  dplyr::select(c('Lake', 'CaSpec', 'Sample_Type'), all_of(prediction_names)) %>%
   tidyr::pivot_longer(!c(Lake, CaSpec, Sample_Type),
                       names_to = 'variable_added',
                       values_to = 'values')
@@ -648,7 +702,7 @@ predictions_longer <- function(dataset){
     out_list <- list()
     for(i in 1:length(variables)){
       var = dataset[,which(colnames(dataset) %in% variables[i])]
-      if(length(var[!is.na(as.numeric(var))]) > 1){ var = as.numeric(var)}
+      if(nrow(unique(var)) > 2){var = as.numeric(unlist(var))}else{var = as.character(unlist(var))}
       out_list[[i]] <- lm(chl ~ rabd + var)
     }
     out_list[[i+1]] <- lm(chl ~ rabd)
@@ -671,15 +725,42 @@ predictions_longer <- function(dataset){
     for(i in 1:length(model_list)){
       varname = names(model_list)[i]
       if(varname %in% 'none'){
-        new_df <-data.frame(cbind(chl,rabd))
-        confint[[i]] <- confint(object = model_list[[i]])
+        new_df <-
+          data.frame(
+            cbind(chl,rabd)
+            )
+        
+        confint[[i]] <- 
+          data.frame(
+            cbind(
+              rbind(
+                confint(object = model_list[[i]])
+                ,NA)
+              ,varname)
+            )
+        rownames(confint[[i]])[3] <- 'none'    
+        confint[[i]]$var <- c('intercept','var1','var2')
+        colnames(confint[[i]]) <- c('low', 'high', 'varname','var')
       }else{
       var = dataset[,which(colnames(dataset) == varname)]
-      new_df <-data.frame(cbind(chl,rabd,var))
-      confint[[i]] <- confint(object = model_list[[i]])
+      new_df <-
+        data.frame(
+          cbind(chl,rabd,var)
+          )
+      confint[[i]] <- 
+        data.frame(
+          cbind(
+            confint(object = model_list[[i]]), varname
+            )
+          )
+      
+      confint[[i]]$var <- c('intercept','var1','var2')
+      colnames(confint[[i]]) <- c('low', 'high', 'varname','var')
       }
     }
   names(confint) <- names(model_list)
-  confint  
-  }
+  
+  confint %>% 
+    purrr::map_df(~map(.x,magrittr::extract)) 
   #wrapper_function
+}

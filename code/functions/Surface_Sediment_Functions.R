@@ -1,15 +1,4 @@
-pred_intervals <- function(var1,var2,mod_coefficients){
-  SSE_line = sum((var1 - (mod_coefficients[1] + mod_coefficients[2]*var2))^2)
-  n <- length(var1)
-  MSE = SSE_line/(n-2)
-  t.quantiles <- qt(c(.025, .975), n-2)
-  SE_predict = sqrt(MSE)*sqrt((1+1/n)+(mean(var2)-1)^2/sum((var2 - mean(var2))^2))
-  prediction = mod_coefficients[1]  + mod_coefficients[2] * 1
-  intervals <- prediction + SE_predict*t.quantiles
-  out <- data.frame(cbind(intervals[1],prediction,intervals[2]))
-  colnames(out) <- c("low", "estimate", "high")
-  return(out)
-}
+
 #takes in a dataset that contains columns of raw (or continuum removed) wavelength values
 #These columns should be labelled as 'X'[wavelength number]
 #set values for left and right endpoints of RABD measurement
@@ -201,7 +190,9 @@ cleanData <- function(dataset){
   #these lines set all values to their correct class (continuous v categorical)
   #and fixes any persistent errors/unnecessary columns in the data
   cleaned <- data.frame(cbind(dataset[,which(is.na(colMeans((apply(dataset,2,as.numeric)),na.rm = TRUE)) == TRUE)],apply(dataset[,-which(is.na(colMeans((apply(dataset,2,as.numeric)),na.rm = TRUE)) == TRUE)],2,as.numeric)))
+  if(length(which(cleaned$Region == "Hawkes Bay")) > 0){
   cleaned[which(cleaned$Region == "Hawkes Bay"),]$Region <- "Hawkes_Bay"
+  }
   if(length(cleaned$Lake_Name.x) !=0){
   cleaned[which(cleaned$Lake_Name.x != cleaned$Lake_Name.y),][,1:2]
   cleaned <- rename(cleaned, Lake_Name = Lake_Name.x)
@@ -359,7 +350,12 @@ OLSresults <- function(cleaned, mod_improvement){
     data.frame()#, cleaned$min660670)#,"residuals","min660670"))]
   colnames(ols) <- c(colnames(cleaned)[which(colnames(cleaned) %in% mod_improvement$variable)], 'residuals')
   ols_model <- lm(residuals ~ ., data = ols)
+<<<<<<< Updated upstream
   return(olsrr::ols_step_both_p(ols_model, details = TRUE))
+=======
+  #ols_model$call$data <- 'ols'
+  olsrr::ols_step_both_p(ols_model, details = TRUE)
+>>>>>>> Stashed changes
 }
 
 
