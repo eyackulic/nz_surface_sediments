@@ -352,11 +352,8 @@ lmp <- function (modelobject) {
 }
 
 readDowncoreData <-function(){
-<<<<<<< Updated upstream
   downcore_data <- read.csv("data/new_zealand_downcore.csv")  
-=======
-  downcore_data <- read.csv(glue::glue(getwd(), '/data/new_zealand_downcore.csv'))  
->>>>>>> Stashed changes
+
   colnames(downcore_data) <- gsub(colnames(downcore_data), pattern = 'X',replacement = '')
   downcore_data$Lake_ID <- downcore_data$Sample
   if(colnames(downcore_data)[1] == ""){
