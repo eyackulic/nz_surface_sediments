@@ -5,10 +5,10 @@ model <- function(rabd660670,bchl_group,
                   c,min845){
   #prep RABD
   R <- rabd660670 - 1
-  R[R < 0.01] <- 0.01
 
   R2 <- min845 - 1
   R2[R2 < 0.01] <- 0.01
+
   
   #prep bchl_group
   bchl_bin <- matrix(1,nrow = length(bchl_group))
@@ -44,6 +44,7 @@ prior_probability <- function(a,a_prior_mean,a_prior_sd,
     )
 }
 
+
 data_probability <- function(rabd660670,bchl_group,a,b,CaSpec,rate,
                              min845,c){
   
@@ -51,7 +52,7 @@ data_probability <- function(rabd660670,bchl_group,a,b,CaSpec,rate,
                           min845,c,
                           a,b
                           )
-  
+
   sumProbability <- sum(dgamma(modeled_CaSpec,shape = CaSpec*rate,rate = rate,log = TRUE))
   
   return(sumProbability)
@@ -64,6 +65,8 @@ rabd660670 <- surface_indices_reduced$min660670
 bchl_group <- surface_indices_reduced$group
 CaSpec <- surface_indices_reduced$CaSpec
 
+
+#hyper parameters
 nIts <- 1e5
 aChain <- bChain <- cChain <- objChain <- matrix(NA, nrow = nIts)
 
@@ -103,7 +106,7 @@ for(i in 2:nIts){
                      propA,propB,
                      CaSpec,uncRate)
   
-  
+  #metropolis-hastings 
   if((propObj - objChain[i-1]) > log(runif(1))){#it passes!
     aChain[i] <- propA
     bChain[i] <- propB
@@ -123,7 +126,11 @@ close(pb)
 
 #diagnostics
 mean(diff(objChain) != 0)
-plot(objChain[c(1:100)],type = "l")
+plot(objChain[-c(1:100)],type = "l")
+
+plot(aChain[-c(1:100)],type = "l")
+plot(bChain[-c(1:100)],type = "l")
+
 
 #define burn-in and thinning
 burnIn <- 1000
@@ -168,13 +175,13 @@ applyCalibration <- function(rabd660670,bchl_group,
 
   return(caSpecCalib)
 }
+RABDseq <- seq(1,2.1,by = 0.01)
 
 calibHi <- applyCalibration(RABDseq,rep("hi",length(RABDseq)),a_post,b_post)
 calibLo <- applyCalibration(RABDseq,rep("low",length(RABDseq)),a_post,b_post)
 
 
-
-RABDseq <- seq(1,2.1,by = 0.01)
+hist(calibLo[50,])
 
 
 
