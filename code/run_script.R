@@ -1,13 +1,14 @@
 #for local code development
-#source("~/Documents/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
-#source("~/Documents/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
+source("~/Documents/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
+source("~/Documents/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
 #otherwise: 
 source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/surface_seds.R')
 source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/Surface_Sediment_Functions.R')
 # step 1 : organize data; remove continuum if necessary
 load_Rdata() # sets necessary variables in global environment; need to migrate to github
-
-all_data <- getGitHubData() %>% 
+library('tidyverse')
+install.packages('prospectr')
+all_data <- getGitHubData() |> 
   dplyr::filter(Sample_Type %in% 'Pigment')
 
 cont_removed <- contRemoval(all_data)
@@ -17,6 +18,7 @@ downcore_bands_only <- downcoreBands(all_data)
 #add an RDS file with common coordinates for different measurements
 #column 1 : list of coordinates, column 2 : type of calculation (rabd, rabdmin, band ratio, etc)
 #load in common indices
+colnames(indices) <- c('index','coordinates','type')
 all_indices_combined <- 
   all_data %>%
   AllSpectralIndices(indices) %>%
@@ -50,6 +52,7 @@ simp_mod <- lm(CaSpec ~ min660670, data = surface_indices_reduced)
 two_mod <-  lm(CaSpec ~ min660670 + group, data = surface_indices_reduced)
 summary(surface_indices_reduced$ConcB)
 #logistic regression for concb and report out
+ 
 surface_outliers_removed <- 
 surface_indices_reduced %>%
   dplyr::slice_min(cooks.distance(two_mod),

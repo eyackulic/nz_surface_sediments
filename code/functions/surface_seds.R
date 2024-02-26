@@ -9,7 +9,7 @@ getDataPaths <- function(){
 all_spectra = 'https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/data/SS-allspectra-updated.csv' %>%
   url() %>%
   readr::read_csv()
-
+}
 add_metadata <- function(dataset){
   metadata <- glue::glue(
     getwd(),
@@ -26,31 +26,7 @@ add_metadata <- function(dataset){
   
   all_metadatas
 }
-new_dat2 <- readxl::read_xlsx("data/SS-allspectra-Bchl_2.xlsx") 
-HSI_JS <- readxl::read_xlsx("data/Surface_Sediments_Pigments.xlsx")
-grainData <- readxl::read_xlsx("data/nz_grain_size.xlsx",sheet = 4)
-siteData <- readxl::read_xlsx("data/nz_grain_size.xlsx",sheet = 2)
 
-names(new_dat2) <- names(all_spectra)
-class(all_spectra$Lake_ID) <- 'character'
-
-new_dat <- 
-  all_spectra %>%
-  dplyr::bind_rows(new_dat2) %>%
-  dplyr::left_join(HSI_JS, by = c('Lake_ID', 'Lake_Name'))
-
-all_data <- 
-  siteData %>%
-  dplyr::select(Lake, Code) %>%
-  dplyr::left_join(grainData, by = 'Code') %>%
-  dplyr::mutate(Lake_Name = gsub(Lake, 
-                                 pattern = 'Lake ',
-                                 replacement = '')) %>%
-  dplyr::rename(Lake_ID = Code) %>%
-  dplyr::right_join(new_dat, by = c('Lake_ID', 'Lake_Name'))
-
-all_data
-}
 
 contRemoval <- function(dataset){
   cont_dat <- dataset[,which(!is.na(as.numeric(colnames(dataset))))]
@@ -256,15 +232,16 @@ dropWavelengths <- function(dataset){
 }
 
 
-indexComparison <- function(dataset, normalize = FALSE, ConcB = NA){
+indexComparison <- function(dataset, normalize = FALSE, ConcB = FALSE){
   options(scipen = 999)
   chl_list <-  c('CaSpec', 'ChlPR', 'CbSpec', 'CarSpec',
                  'ConcCa','ConcAl', 'ConcCt','ConcEc',
                  'ConcCb', 'ConcF', 'ConcL', 'ConcP',
-                 'ConcDt','ConcV', 'ConcZ', 'ConcB'
+                 'ConcDt','ConcV', 'ConcZ', 'ConcB','ConcBc'
   )
 
-  if(is.na(ConcB)){chl_list <- chl_list[!grepl('ChlPR|ConcB', chl_list)]}
+  if(isFALSE(ConcB)){chl_list <- chl_list[!grepl('ChlPR|ConcB', chl_list)]
+  }else{chl_list <- chl_list[!grepl('ConcBc', chl_list)]}
   chl <- dataset %>%
     dplyr::select(
       all_of(chl_list)

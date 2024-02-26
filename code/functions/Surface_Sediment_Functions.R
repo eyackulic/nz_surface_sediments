@@ -346,11 +346,13 @@ modImprover <- function(plots, df, model, choice){
 }
 #add in gam modelling
 OLSresults <- function(cleaned, mod_improvement){
-  ols <- cbind(cleaned[,which(colnames(cleaned) %in% mod_improvement$variable)],cleaned$residuals) %>%
-    data.frame()#, cleaned$min660670)#,"residuals","min660670"))]
-  colnames(ols) <- c(colnames(cleaned)[which(colnames(cleaned) %in% mod_improvement$variable)], 'residuals')
-  ols_model <- lm(residuals ~ ., data = ols)
 
+  ols <<- 
+    cleaned |> 
+    dplyr::select(mod_improvement$variable, 'residuals') 
+  
+  ols_model <- lm(residuals ~ ., data = ols)
+  
   olsrr::ols_step_both_p(ols_model, details = TRUE)
 
 }
