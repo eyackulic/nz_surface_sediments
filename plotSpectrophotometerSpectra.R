@@ -50,6 +50,7 @@ surfSpec$ABS <- map(surfSpec$ABS,\(x) data.frame(wavelengths = seq(1000,220,by =
 calibrateBern <- function(ABS, Dilution, ExtractVol, SampleWeight, WaterCont, baselineWavelength = 800,correctForWaterContent = TRUE,...){
   wavelength <- ABS$wavelengths
   absorbance <- ABS$abs
+  finalVol <- ExtractVol * Dilution
   
   abs666 <- absorbance[which(wavelength == 666)]
   abs750 <- absorbance[which(wavelength == 750)]
@@ -67,12 +68,12 @@ calibrateBern <- function(ABS, Dilution, ExtractVol, SampleWeight, WaterCont, ba
   }
   
   adj666 <-  abs666 - baseAbs
-  t_chl_ug <- (adj666 / 0.08077) * Dilution * ExtractVol / SampleWeight * 1 / (1-WaterCont)
+  t_chl_ug <- (adj666 / 0.08077) * Dilution * ExtractVol / (SampleWeight * (1-WaterCont))
   
   adj750 <- abs750 - baseAbs
-  bphe_ug <- (adj750/ 0.052855) * Dilution * ExtractVol / SampleWeight * 1 / (1-WaterCont)
+  bphe_ug <- (adj750/ 0.052855) * Dilution * ExtractVol / (SampleWeight * (1-WaterCont))
   
-  return(data.frame(t_chl_ug = t_chl_ug, bphe_ug = bphe_ug))
+  return(data.frame(t_chl_ug = t_chl_ug, bphe_ug = bphe_ug,CaABS = adj666))
   
 }
 
@@ -100,8 +101,8 @@ calibrateJP <- function(ABS, Dilution, ExtractVol, SampleWeight, WaterCont, base
   if(!correctForWaterContent){
     WaterCont <- 0
   }
-  t_chl_a_ug <- ((16.72 * adj665) - (9.16 * abj652))  * Dilution *  ExtractVol / SampleWeight * 1 / (1-WaterCont)
-  t_chl_b_ug <- ((34.09 * abj652) - (15.28 * adj665))  * Dilution * ExtractVol / SampleWeight * 1 / (1-WaterCont)
+  t_chl_a_ug <- ((16.72 * adj665) - (9.16 * abj652))  * Dilution *  ExtractVol / (SampleWeight * (1-WaterCont))
+  t_chl_b_ug <- ((34.09 * abj652) - (15.28 * adj665))  * Dilution * ExtractVol / (SampleWeight * (1-WaterCont))
   
   return(data.frame(t_chl_a_ug = t_chl_a_ug, t_chl_b_ug = t_chl_b_ug))
   
@@ -113,7 +114,28 @@ jpCals <- pmap(surfSpec,calibrateJP,baselineWavelength = 800,correctForWaterCont
 surfSpecNew <- bind_cols(surfSpec,bernCals,jpCals)
 
 #let's take a look!
-allDat <- left_join(surfSpecNew,surface_indices_reduced,by = "Lake_ID")
+allDat <- left_join(surfSpecNew,surface_indices_reduced,by = "Lake_ID") |> 
+  mutate(WBD = (WaterCont.x * 1 + 2.5 *(1-WaterCont.x))) |> rowwise() |> 
+  mutate(allConc = sum(across(starts_with("Conc"))))
+
+dc_indices_combined <- dc_indices_combined |> rowwise() |> mutate(allConc = sum(across(starts_with("Conc"))))
+
+#let's look at all pigments:
+
+ggplot(allDat) + 
+ geom_point(aes(x = min660670,y = allConc ), color = "blue") +
+  geom_point(data = dc_indices_combined,aes(x = min660670,y = allConc) , color = "red" )
+
+#what if we screen CaSpec by peak absorbance
+ggplot(allDat) + 
+  geom_point(aes(x = min660670,y = t_chl_a_ug, color = CaABS < 0.1 | CaABS > 1)) +
+  scale_color_viridis_d()
+
+
+wcMod <- .6
+ggplot(allDat) + 
+  geom_point(aes(x = min660670,y = t_chl_a_ug ), color = "blue") +
+  geom_point(data = dc_indices_combined,aes(x = min660670,y = CaSpec * (1-WaterCont)) , color = "red" ) 
 
 ggplot(allDat) + 
   geom_point(aes(x = min660670,y = t_chl_a_ug,color = "JP")) +
@@ -123,8 +145,6 @@ ggplot(allDat) +
 ggplot(allDat) + 
   geom_point(aes(x = t_chl_ug,y = CaSpec))
 
-ggplot(allDat) + 
-  geom_point(aes(x = min660670,y = t_chl_a_ug * (1-WaterCont.x), color =Dilution))
 
 
 ggplot(allDat) + 
@@ -171,3 +191,5 @@ ggplot(allDat) +
   geom_point(aes(y = 1/(1-WaterCont.x), x = WaterCont.x, color = Dilution)) + 
   scale_color_viridis_b()
   
+
+

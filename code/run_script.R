@@ -1,13 +1,13 @@
 #for local code development
-source("~/Documents/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
-source("~/Documents/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
+source("~/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
+source("~/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
 #otherwise: 
 source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/surface_seds.R')
 source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/Surface_Sediment_Functions.R')
 # step 1 : organize data; remove continuum if necessary
 load_Rdata() # sets necessary variables in global environment; need to migrate to github
 library('tidyverse')
-install.packages('prospectr')
+#install.packages('prospectr')
 all_data <- getGitHubData() |> 
   dplyr::filter(Sample_Type %in% 'Pigment')
 
