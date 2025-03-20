@@ -1,5 +1,34 @@
 library(readxl)
 library(tidyverse)
+#for local code development
+source("~/GitHub/nz_surface_sediments/code/functions/surface_seds.R")
+source("~/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions.R")
+load_Rdata()
+all_data <- getGitHubData() |> 
+  dplyr::filter(Sample_Type %in% 'Pigment')
+
+cont_removed <- contRemoval(all_data)
+
+downcore_bands_only <- downcoreBands(all_data)
+#step 2 : calculate RABD values; normalize if necessary
+#add an RDS file with common coordinates for different measurements
+#column 1 : list of coordinates, column 2 : type of calculation (rabd, rabdmin, band ratio, etc)
+#load in common indices
+colnames(indices) <- c('index','coordinates','type')
+all_indices_combined <- 
+  all_data %>%
+  AllSpectralIndices(indices) %>%
+  dropWavelengths()
+
+surface_indices_reduced <- 
+  downcore_bands_only %>%
+  AllSpectralIndices(downcore_indices) %>%
+  dropWavelengths()%>%
+  dplyr::mutate(
+    normChl = CaSpec ^(1/10),
+    normRABD = (min660670 - 0.9) ^(1/10)
+  )
+
 
 surf <- read_excel("~/Downloads/Surface_Sediments_Spectro.xlsx",skip = 2,col_names = NA)
 
@@ -107,16 +136,35 @@ calibrateJP <- function(ABS, Dilution, ExtractVol, SampleWeight, WaterCont, base
   return(data.frame(t_chl_a_ug = t_chl_a_ug, t_chl_b_ug = t_chl_b_ug))
   
 }
-bernCals <- pmap(surfSpec,calibrateBern,baselineWavelength = 800,correctForWaterContent = TRUE) |> list_rbind()
-jpCals <- pmap(surfSpec,calibrateJP,baselineWavelength = 800,correctForWaterContent = TRUE) |> list_rbind()
+bernCals <- pmap(surfSpec,calibrateBern,baselineWavelength = 800,correctForWaterContent = FALSE) |> list_rbind()
+jpCals <- pmap(surfSpec,calibrateJP,baselineWavelength = 800,correctForWaterContent = FALSE) |> list_rbind()
 
 
 surfSpecNew <- bind_cols(surfSpec,bernCals,jpCals)
-
+ashDensity <- 1.2
+waterDensity <- 1
 #let's take a look!
+
+#NPM - next step, try with HSI water contents? Or better to use pigment data?
 allDat <- left_join(surfSpecNew,surface_indices_reduced,by = "Lake_ID") |> 
-  mutate(WBD = (WaterCont.x * 1 + 2.5 *(1-WaterCont.x))) |> rowwise() |> 
+  mutate(WaterCont.Volumetric = 1 / ((1/WaterCont.y - 1)/ ashDensity + 1),
+         DBD = (ashDensity * (1-WaterCont.Volumetric)),
+         WBD = (ashDensity * (1-WaterCont.Volumetric) + 1 * WaterCont.Volumetric),
+         CaSpecVol = t_chl_a_ug * WBD,
+         CaSpecVol2 = CaSpec * DBD,
+         CaSpecVol3 = CaSpec * DryBD.DW.g.cm3) |> 
+  rowwise() |> 
   mutate(allConc = sum(across(starts_with("Conc"))))
+
+cor(allDat$min660670,allDat$CaSpecVol,use = "pairwise.complete.obs")
+cor(allDat$min660670,allDat$CaSpecVol2,use = "pairwise.complete.obs")
+cor(allDat$min660670,allDat$CaSpecVol3,use = "pairwise.complete.obs")
+
+plot(allDat$DryBD.DW.g.cm3,allDat$DBD)
+lines(x = c(0,1),y = c(0,1))
+
+hist(allDat$DBD)
+hist(allDat$WBD)
 
 dc_indices_combined <- dc_indices_combined |> rowwise() |> mutate(allConc = sum(across(starts_with("Conc"))))
 
@@ -126,11 +174,14 @@ ggplot(allDat) +
  geom_point(aes(x = min660670,y = allConc ), color = "blue") +
   geom_point(data = dc_indices_combined,aes(x = min660670,y = allConc) , color = "red" )
 
-#what if we screen CaSpec by peak absorbance
 ggplot(allDat) + 
-  geom_point(aes(x = min660670,y = t_chl_a_ug, color = CaABS < 0.1 | CaABS > 1)) +
-  scale_color_viridis_d()
+  geom_point(aes(x = min660670,y = CaSpec))
 
+cor(allDat$min660670,allDat$CaSpec,use = "pairwise.complete.obs")
+
+#what if we look by volume?
+ggplot(allDat) + 
+  geom_point(aes(x = min660670,y = CaSpecVol2, color = bphe_ug > 1)) 
 
 wcMod <- .6
 ggplot(allDat) + 
@@ -143,7 +194,7 @@ ggplot(allDat) +
   scale_color_brewer(palette = "Set1")
 
 ggplot(allDat) + 
-  geom_point(aes(x = t_chl_ug,y = CaSpec))
+  geom_point(aes(x = t_chl_ug,y = t_chl_a_ug))
 
 
 

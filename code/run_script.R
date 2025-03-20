@@ -5,8 +5,8 @@ source("~/GitHub/nz_surface_sediments/code/functions//Surface_Sediment_Functions
 source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/surface_seds.R')
 source('https://raw.githubusercontent.com/eyackulic/nz_surface_sediments/main/code/functions/Surface_Sediment_Functions.R')
 # step 1 : organize data; remove continuum if necessary
-load_Rdata() # sets necessary variables in global environment; need to migrate to github
 library('tidyverse')
+load_Rdata() # sets necessary variables in global environment; need to migrate to github
 #install.packages('prospectr')
 all_data <- getGitHubData() |> 
   dplyr::filter(Sample_Type %in% 'Pigment')
@@ -373,6 +373,5 @@ dc_results[dc_results$r2 < 0,]$r2 <- 0
 ggplot() + 
   geom_tile(data = c, aes(x = Lake, y = Variable, fill = as.numeric(r2))) +
   geom_tile(data = dc_results, aes(y = Variable, x = Lake, fill = as.numeric(r2)), alpha = .4) +
-  scale_fill_viridis_c(name = 'r2'#,
-                       #limits = c(0,0.7)
+  scale_fill_viridis_c(name = 'r2',limits = c(0,0.7)) +
   theme(axis.text.x = element_text(angle = 90))

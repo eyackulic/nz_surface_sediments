@@ -44,7 +44,7 @@ allDcData <- left_join(dc_indices_combined,dcSpecNew,by = "Sample") |>
 
 allDat <- allDat |> 
   mutate(DryWeight = SampleWeight * (1-WaterCont.x),
-         scannedWC = 1 * WaterCont.x,
+         scannedWC = .5 * WaterCont.x,
          WBD.estimate = scannedWC * 1 + (1-scannedWC) * 2.5,
          t_chl_cm3 = (t_chl_ug * (1-WaterCont.x)) * WBD.estimate) |> 
   filter(!is.na(DryWeight))
@@ -53,13 +53,20 @@ allDat <- allDat |>
 # make some plots
 weightCut <- 0.2
 
-compPlot <- ggplot(allDcData) + 
+compPlotWBD <- ggplot(allDcData) + 
   geom_point(aes(x = min660670,y = t_chl_cm3 ,shape = between(CaABS,0.1,.95),size = DryWeight > weightCut,color = "Downcore")) + 
   geom_point(data = allDat,aes(x = min660670,y = t_chl_cm3, shape = between(CaABS,0.1,.95), size = DryWeight > weightCut ,color = "Surface")) +
   scale_shape_manual(values = c(1,16)) +
   scale_size_manual(values = c(1,3)) +
   scale_color_brewer(palette = "Set1")
 
-compPlot
+compPlotWBD + xlim(c(1,1.675)) + ylim(c(0,100))
 
-             
+compPlot <-  ggplot(allDcData) + 
+  geom_point(aes(x = min660670,y = t_chl_ug / (1-WaterCont.x) ,shape = between(CaABS,0.1,.95),size = DryWeight > weightCut,color = "Downcore")) + 
+  geom_point(data = allDat,aes(x = min660670,y = t_chl_ug, shape = between(CaABS,0.1,.95), size = DryWeight > weightCut ,color = "Surface")) +
+  scale_shape_manual(values = c(1,16)) +
+  scale_size_manual(values = c(1,3)) +
+  scale_color_brewer(palette = "Set1")
+
+compPlot + ylim(c(0,300))             
